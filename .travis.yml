@@ -1,0 +1,37 @@
+language: ruby
+cache:
+    bundler: true
+    timeout: 1000
+rvm:
+    - 2.2.5
+branches:
+  only:
+    - master
+before_install:
+    - uname -a
+    - lsb_release -a
+    - sudo apt-get update
+    - unset RAILS_ENV
+    - rvm rubygems current
+    - npm install -g bower
+    - bower install
+before_script:
+    - mysql -u root < db/grant_expertiza.sql
+    - cp config/database.yml.example config/database.yml
+    - cp config/secrets.yml.example config/secrets.yml
+    - export JAVA_HOME=/usr/lib/jvm/java-6-openjdk-amd64
+    - bundle install
+    - bundle exec rake db:setup
+    - "export DISPLAY=:99.0"
+    - "sh -e /etc/init.d/xvfb start"
+script:
+    - "export DISPLAY=:99.0 && RUBYOPT=W0 bundle exec rake 2> /dev/null"
+services:
+    - mysql
+notifications:
+    email:
+      recipients:
+        - expertiza-support@lists.ncsu.edu
+      on_success: change
+      on_failure: change
+    slack: expertiza-support:sbS46L9sFGW9vrRDszFaD9C2

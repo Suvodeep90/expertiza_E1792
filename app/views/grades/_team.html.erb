@@ -1,0 +1,34 @@
+<TRstyle="background-color: white;;"><TD>
+     <a href="#" id="<%= prefix %>Link" name="<%= prefix %>Link" onclick="toggleTeam('<%= prefix %>');return false;"><%=image_tag("expand.png")%></a>
+
+  <% topic_id = tscore[:team].topic%>
+  <% if topic_id%>
+    <%= tscore[:team].name + ' ('+SignUpTopic.find(topic_id).topic_identifier+')' %>
+  <% else %>
+    <%= tscore[:team].name %>
+  <% end %>
+  <% if tscore[:team].participants.first %>
+    <%= link_to "Alternate View", :controller => 'grades', :action => 'view_team', :id => tscore[:team].participants.first.id %></TD>
+  <% end %>
+     <% if tscore[:scores][:avg] %>
+      	<TD COLSPAN="<%= col_avg_th_span_value %>" ALIGN="CENTER"><%= sprintf("%.2f",tscore[:scores][:avg]) %>%</TD>
+       	<TD COLSPAN="<%= col_range_th_span_value %>" ALIGN="CENTER"><%= sprintf("%.0f",tscore[:scores][:min]) %>% - <%= sprintf("%.0f",tscore[:scores][:max]) %>%</TD>
+     <% else %>
+        <TD COLSPAN="<%= col_avg_th_span_value %>" ALIGN="CENTER">---</TD>
+        <TD COLSPAN="<%= col_range_th_span_value %>" ALIGN="CENTER">---</TD>
+     <% end %>
+     <TD WIDTH="9">&nbsp;</TD></TR>  
+     
+<%= render :partial => 'participant_title', :locals => {:prefix => prefix } %>        
+<!--Zhewei: If several participants coming from same team, view score page only needs to display same review once. -->
+<% pindex = 3 %>
+  <% tscore[:team].participants.each_with_index do |participant, index| %>
+     <%= render :partial => 'grades/participant',
+                :locals => {:prefix => prefix+"_"+pindex.to_s,
+     	 			                :team => true,
+                            :participant_id => participant.id,
+                            :index => index,
+                            :team_size => tscore[:team].participants.size,
+                            :pscore => @scores[:participants][participant.id.to_s.to_sym]} %>  
+     <% pindex += 1 %>                            
+<% end %>        

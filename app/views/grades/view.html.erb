@@ -1,0 +1,298 @@
+<h1>Summary report for <%= @assignment.name %></h1>
+<BR/>
+<% if @scores[:teams] %>
+	<a href="#" onClick="toggleAll(<%= @scores[:teams].length %>);return false;" id="teamAll" name="teamAll">Show all teams</a>
+    <BR/><BR/>
+<% end %>
+<!-- If there are no teams, the Teammate Review column should not appear in the score report.
+If there is no metareviewing deadline, the “Reviewing” column should not appear in the score report.-->
+<TABLE class="grades" width="100%" height = "10">
+    <!--ACS Render the appropriate partial for displaying the scores depending on the team size -->
+<% if @assignment.team_assignment? && @scores[:teams].length > 0 %>
+  <%= render :partial => 'teams' %>
+<% else %>
+  <TR><TD>No teams are defined for this assignment</TD></TR>
+<% end %>
+</TABLE>
+<BR/><BR/>
+<%= link_to 'Export '+'Grades',
+            :controller=>'export_file',
+            :action=>'start',
+            :model=>'Assignment',
+            :id=>@assignment.id %> <BR/><BR/>
+<a href="javascript:window.history.back()">Back</a>
+
+<span></span><br/><br/><br/>
+<%@l = -1 %>
+<!-- the table creation is changed top accomodate functionality of tablesorter, which requires thead and tbody seperately. Previously, headers were in tbody only -->
+<div class = 'reviewreport'>
+  <!-- Added headers for tablesorter -->
+  <table id="myTable" class="tbl_heat tablesorter" width="100%" cellspacing='0' cellpadding='2' border='0'>
+    <thead>
+    <tr bgcolor='#CCCCCC'>
+      <!-- class value decides whether the column should be sortable or not  -->
+      <th width = "7%" class="sorter-true" style="text-align:center"> Contributor <span></span></th>
+      <th width = "4%" class="sorter-false" style="text-align:center"> Submission <span></span></th>
+      <th width = "11%" class="sorter-true" style="text-align:center"> Team <span></span></th>
+      <th width = "13%" class="sorter-false" style="text-align:center"> Reviews Received <span></span></th>
+      <th width = "13%" class="sorter-false" style="text-align:center"> Author Feedback Received <span></span></th>
+      <th width = "13%" class="sorter-false" style="text-align:center"> Team Member Reviews Received <span></span></th>
+      <th width = "13%" class="sorter-false" style="text-align:center"> Reviews Given <span></span></th>
+      <th width = "13%" class="sorter-false" style="text-align:center"> Author Feedback Given <span></span></th>
+      <th width = "13%" class="sorter-true" style="text-align:center"> Final Score <span></span></th>
+    </tr>
+    </thead>
+    <tbody>
+    <% for index in 0 .. @scores[:teams].length - 1 %>
+        <% tscore = @scores[:teams][index.to_s.to_sym] %>
+        <% pindex = 3 %>
+        <% tscore[:team].participants.each_with_index do |participant, index2| %>
+            <tr>
+              <% prefix = 'team'+index.to_s+"_"+pindex.to_s %>
+              <% team = true %>
+              <% participant_id = participant.id %>
+              <% index = index %>
+              <% team_size = tscore[:team].participants.size %>
+              <% pscore = @scores[:participants][participant.id.to_s.to_sym] %>
+              <% rscore_review = Rscore.new(pscore,:review) if pscore[:review] %>
+              <% rscore_metareview = Rscore.new(pscore,:metareview) if pscore[:metareview] %>
+              <% rscore_feedback = Rscore.new(pscore,:feedback) if pscore[:feedback] %>
+              <% rscore_teammate = Rscore.new(pscore,:teammate) if pscore[:teammate] %>
+              <td ALIGN="CENTER"> <%= participant.fullname %> </td>
+              <td ALIGN="CENTER"> <FONT SIZE="-1">
+                <%= link_to "View", "/assignments/list_submissions?id=#{@assignment.id}" %>
+                <% if @topic_id %> (<%= SignUpTopic.find(@topic_id).topic_identifier %>)<% end %>
+              </FONT> </td>
+
+            <% topic_id = tscore[:team].topic%>
+            <% if topic_id%>
+                <td ALIGN="CENTER"> <%= tscore[:team].name + ' ('+SignUpTopic.find(topic_id).topic_identifier+')' %> </td>
+            <% else %>
+                <td ALIGN="CENTER"> <%= tscore[:team].name %> </td>
+            <% end %>
+
+              <% if !rscore_review.nil? && rscore_review.my_avg %>
+                      <TD id=<%="rowspanTd1#{participant_id}"%> ALIGN="CENTER">
+                        <%= pscore[:review][:assessments].size.to_s + " received" %><BR/>
+                        <%= "Range: " %>
+                        <%= rscore_review.my_min.is_a?(Float)? sprintf("%.0f",rscore_review.my_min): rscore_review.my_min %>% - <%= rscore_review.my_max.is_a?(Float)? sprintf("%.0f",rscore_review.my_max): rscore_review.my_max %>% <BR/>
+                        <%= "Avg: " %>
+                        <%= rscore_review.my_avg.is_a?(Float)? sprintf("%.2f",rscore_review.my_avg): rscore_review.my_avg %>%<BR/>
+                        <FONT SIZE="-1"><%= link_to "show reviews", "view_team?id=#{participant.id}" %></FONT>
+                      </TD>
+              <% else %>
+                  <TD ALIGN="CENTER">---</TD>
+              <% end %>
+
+              <!-- Usually does not execute, will not handle correctly when it does -->
+              <% if has_team_and_metareview?[:has_metareview] %>
+                  <% if rscore_metareview && rscore_metareview.my_avg %>
+                      <TD ALIGN="CENTER" VALIGN="TOP">
+                        <%= pscore[:metareview][:assessments].size %> <%= " received"%> <BR/>
+                        <%= "Range: " %>
+                        <TD ALIGN="CENTER" VALIGN="TOP"><%= rscore_metareview.my_min.is_a?(Float)? sprintf("%.0f",rscore_metareview.my_min):rscore_metareview.my_min %>% - <%= rscore_metareview.my_max.is_a?(Float)?sprintf("%.0f",rscore_metareview.my_max):rscore_metareview.my_max %>% <BR/>
+                        <%= "Avg: " %>
+                        <%= rscore_metareview.my_avg.is_a?(Float)? sprintf("%.2f",rscore_metareview.my_avg):rscore_metareview.my_avg %>% <BR/>
+                        <FONT SIZE="-1">
+                          <a href="#" id="<%=prefix%>_mreviewsLink" name="<%=prefix%>_mreviewsLink" onClick="toggleElement('<%=prefix%>_mreviews','metareviews');return false;">show metareviews</a> (<%= pscore[:metareview][:assessments].size %>)
+                        </FONT>
+                          <FONT SIZE="-1">
+                            <%= link_to "show meta reviews", "/review_mapping/response_report?id=#{@assignment.id}" %>
+                          </FONT>
+                      </TD>
+                  <% else %>
+                      <TD ALIGN="CENTER">---</TD>
+                  <% end %>
+              <% end %>
+
+              <% if !rscore_feedback.nil? && rscore_feedback.my_avg %>
+                  <TD ALIGN="CENTER" VALIGN="TOP">
+                    <%= pscore[:feedback][:assessments].size %> <%= " received"%> <BR/>
+                    <%= "Range: " %>
+                    <%= rscore_feedback.my_min.is_a?(Float)? sprintf("%.0f",rscore_feedback.my_min): rscore_feedback.my_min %>% - <%= rscore_feedback.my_max.is_a?(Float)? sprintf("%.0f",rscore_feedback.my_max):rscore_feedback.my_max %>% <BR/>
+                    <%= "Avg: " %>
+                    <%= rscore_feedback.my_avg.is_a?(Float)? sprintf("%.2f",rscore_feedback.my_avg): rscore_feedback.my_avg %>% <BR/>
+                    <FONT SIZE="-1"><%= link_to "show author feedback", "view_team?id=#{participant.id}" %></FONT>
+                  </TD>
+              <% else %>
+                  <TD ALIGN="CENTER">---</TD>
+              <% end %>
+
+              <!--ACS Teammate review needs to be done only if there are more than one person in the team-->
+              <% if has_team_and_metareview?[:has_team] %>
+                  <% if @assignment.show_teammate_reviews || session[:user].role_id == 2 || session[:user].role_id == 3 || session[:user].role_id == 4 || session[:user].role_id == 6%>
+                      <% if rscore_teammate and rscore_teammate.my_avg %>
+                          <TD ALIGN="CENTER" VALIGN="TOP">
+                            <%= pscore[:teammate][:assessments].size.to_s + " received" %><BR/>
+
+                            <% range =  rscore_teammate.my_min.is_a?(Float) ? sprintf("%.0f",rscore_teammate.my_min) : rscore_teammate.my_min.to_s + '%' %>
+                            <% range += '-' %>
+                            <% range += rscore_teammate.my_max.is_a?(Float) ? sprintf("%.0f",rscore_teammate.my_max) : rscore_teammate.my_max.to_s + '%' %>
+
+                            <%if @assignment %>
+                                <%= "Range: " %>
+                                <%= range %> <BR/>
+                            <% end %>
+
+                            <% avg_score = rscore_teammate.my_avg.is_a?(Float)?sprintf("%.2f",rscore_teammate.my_avg):rscore_teammate.my_avg %>
+                            <%if @assignment%>
+                                <%= "Avg: " %>
+                                <%= avg_score %>
+                            <%end%>
+                            <BR/><FONT SIZE="-1">
+                            <%= link_to "show teammate reviews", "/review_mapping/response_report?id=#{@assignment.id}" %>
+                          </FONT>
+
+
+                          </TD>
+                      <% else %>
+                          <TD ALIGN="CENTER">---</TD>
+                      <% end %>
+                  <% else %>
+                      <TD ALIGN="CENTER">---</TD>
+                  <%end%>
+              <%end%>
+
+              <!-- If we have a total point value, display in "out of" format rather than percentage for total score -->
+              <% if pscore[:max_pts_available]
+                   score_postfix = sprintf(" / %.2f",pscore[:max_pts_available])
+                 else
+                   score_postfix = "%"
+                 end %>
+
+              <TD ALIGN="CENTER">
+                <%
+                   count = 0
+                   unless participant.id.nil?
+                     @review_final_versions = ReviewResponseMap.final_versions_from_reviewer(participant.id)
+
+                     count = @review_final_versions[@review_final_versions.keys.first][:response_ids].length
+                   end
+                %>
+                <%= count %> given
+                <BR/> <FONT SIZE="-1">
+                <%= unless count==0
+                      link_to "show reviews", "/popup/view_review_scores_popup?assignment_id=#{@assignment.id}&reviewer_id=#{participant.id}"
+                    end
+                %> </FONT>
+              </TD>
+
+              <% @feedback_final_versions = FeedbackResponseMap.where(["reviewer_id = ?", participant.id]) %>
+
+              <% if @feedback_final_versions.count >= 1 %>
+                  <TD ALIGN="CENTER"><%= @feedback_final_versions.count %> <%= " given"%> <BR/>
+                    <FONT SIZE="-1">
+                    <%= unless count==0
+                          link_to "show author feedback", "/review_mapping/response_report?id=#{@assignment.id}"
+                        end
+                    %> </FONT>
+                  </TD>
+              <% else %>
+                  <TD ALIGN="CENTER">---</TD>
+              <% end %>
+
+              <% topic_id = SignedUpTeam.topic_id(@assignment.id, participant.user_id) %>
+              <% stage = @assignment.get_current_stage(topic_id) %>
+              <% if controller.action_name == 'view' or controller.action_name == "view_my_scores" %>
+                  <TD ALIGN="CENTER">
+                    <% if stage == "Finished" %>
+
+                        <% if participant.grade %>
+                            <% total_score = participant.grade %>
+                            <% title = "A score in blue indicates that the value was overwritten by the instructor or teaching assistant." %>
+                        <% else %>
+                            <% total_score = pscore[:total_score] %>
+                            <% title = nil %>
+                        <% end %>
+
+                        <div <% if title %>title="<%=title%>" style="color:#0033FF"<% end %>><%= total_score==(-1)? "N/A": sprintf("%.2f",total_score) %><%= score_postfix %></div>
+
+                        <% if controller.action_name != "view_my_scores" %>
+                            <FONT SIZE="-1"><a href="../grades/view_team?id=<%= participant.id%>"  >view heatgrid</a></FONT>
+                            <!--Zhewei: Since edit grade does not work now, hide this link temporarily.-->
+                            <!--<BR/><FONT SIZE="-1"><%= link_to 'edit score', :action => 'edit', :id => participant.id %></FONT>-->
+                        <% else %>
+                            <FONT SIZE="-1">(in <%= stage %>)</FONT>
+                        <% end %>
+
+                    <% else %>
+                        <% if !rscore_review.nil? && rscore_review.my_avg %>
+                            <%= rscore_review.my_avg.is_a?(Float)?sprintf("%.2f",rscore_review.my_avg):rscore_review.my_avg %><%= score_postfix %>
+                        <% else %>
+                            <%= '---' %>
+                        <% end %>
+                    <% end %>
+                  </TD>
+              <% end %>
+
+            <% pindex += 1 %>
+          </tr>
+      <% end %>
+    <% end %>
+
+    </tbody>
+  </table>
+</div>
+
+
+<style>
+    /*TableSorter CSS styles */
+    th.tablesorter-headerAsc{
+        /* Style for Up Arrow */
+        background-image: url(<%= asset_path("up-arrow.png") %>);
+        background-size: 15px 15px;
+        background-repeat: no-repeat;
+        background-position: center right;
+        padding-right: 15px;
+    }
+
+    th.tablesorter-headerDesc{
+        /* Style for down arrow */
+        background-image: url(<%= asset_path("down-arrow.png") %>);
+        background-size: 15px 15px;
+        background-repeat: no-repeat;
+        background-position: center right;
+        padding-right: 15px;
+    }
+
+    /* Style for no-sort*/
+    th.sorter-true.tablesorter-headerUnSorted{
+        /* Style for default view  */
+        background-image: url(<%= asset_path("sort.png") %>);
+        background-size: 15px 7px;
+        background-repeat: no-repeat;
+        background-position: center right;
+        padding-right: 15px;
+
+    }
+</style>
+
+<script>
+    $(function () {
+        /*Function for sorting the table */
+        $("#myTable").tablesorter({
+            //Begins by being sorted by team, then can be sorted alphabetically with the arrow key
+            headers: {
+                4: {
+                    sorter: 'customParser' //custom Parser to parse Metrics data for the custom parser
+                }
+            }
+        });
+    });
+
+    $.tablesorter.addParser({
+        id: "customParser",                                       //customParser for sorting by volume
+        is: function (stringValue) {
+            return false;
+        },
+        format: function (stringValue) {
+            var stringNumericPart = stringValue.split(" ");         //split the data by spaces
+            var numericValue = parseInt(stringNumericPart[2],10);   //extract the numeric data
+            return numericValue ;
+        },
+        type: 'numeric'
+    });
+
+</script>
+
+
